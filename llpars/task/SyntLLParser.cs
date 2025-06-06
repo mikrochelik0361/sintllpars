@@ -23,12 +23,14 @@ namespace task
 
         // Ошибки ключевых слов
         ExpectedFun = 200,
-        ExpectedIn = 201,
-        ExpectedMain = 209,
-        ExpectedFor = 210,
-        ExpectedElse = 211,
-        ExpectedVarOrVal = 212,
-        ExpectedIntOrChar = 213,
+        ExpectedMain = 201,
+        ExpectedFor = 202,
+        ExpectedVar = 203,
+        ExpectedVal = 204,
+        ExpectedIntOrChar = 205,
+        ExpectedStep = 206,
+        ExpectedLt = 207,
+        Expectedinvcikl = 208,
 
         // Ошибки выражений
         ExpectedIdentifier = 300,
@@ -66,6 +68,13 @@ namespace task
             errorMessages.Add($"Error #{(int)code} at token {index}: {code.ToString()} - Unexpected {tokenInfo}");
         }
 
+        private Token GetToken(int idx)
+        {
+            if (idx < Tokens.Count)
+                return Tokens[idx];
+
+            throw new IndexOutOfRangeException("End of token stream reached");
+        }
 
         public ErrorCode Parse()
         {
@@ -82,19 +91,8 @@ namespace task
             }
         }
 
-        private Token GetToken(int idx)
+        private ErrorCode prog()
         {
-            if (idx < Tokens.Count)
-                return Tokens[idx];
-
-            throw new IndexOutOfRangeException("End of token stream reached");
-        }
-
-
-        public ErrorCode prog()
-        {
-            index = 0;
-
             if (!(GetToken(index).Type == "T" && GetToken(index).Value == "fun"))
             {
                 Error(ErrorCode.ExpectedFun, index);
@@ -138,7 +136,6 @@ namespace task
                 Error(ErrorCode.ExpectedCloseBrace, index);
                 return ErrorCode.ExpectedCloseBrace;
             }
-
             index++;
 
             return ErrorCode.ExpectedCloseBrace;
@@ -146,128 +143,47 @@ namespace task
 
         private ErrorCode spis_oper()
         {
-            // Если следующая лексема — '}', значит, тело пустое — это допустимо
             if (GetToken(index).Type == "S" && GetToken(index).Value == "}")
             {
-                return ErrorCode.ExpectedCloseBrace; // Разрешаем пустое тело
+                return ErrorCode.ExpectedCloseBrace;
             }
 
-            // Иначе проверяем список операций
             ErrorCode code = oper();
             if (code != ErrorCode.ExpectedCloseBrace) return code;
 
-            return bolshe_oper();
+            return S();
+        }
+
+        private ErrorCode S()
+        {
+            if (GetToken(index).Type == "S" && GetToken(index).Value == "}")
+            {
+                return ErrorCode.ExpectedCloseBrace;
+            }
+
+            ErrorCode code = oper();
+            if (code != ErrorCode.ExpectedCloseBrace) return code;
+
+            return S();
         }
 
         private ErrorCode oper()
         {
-            if (index >= Tokens.Count)
+            if (GetToken(index).Type == "T" && GetToken(index).Value == "for")
             {
-                Error(ErrorCode.UnexpectedToken, index);
-                return ErrorCode.UnexpectedToken;
+                return cikl();
             }
-
-            // <тип_пам> id <опис_id>
-            if (GetToken(index).Type == "T" && (GetToken(index).Value == "var" || GetToken(index).Value == "val"))
-            {
-                index++;
-                if (GetToken(index).Type == "ID")
-                {
-                    index++;
-                    return opis_id();
-                }
-                else
-                {
-                    Error(ErrorCode.ExpectedIdentifier, index);
-                    return ErrorCode.ExpectedIdentifier;
-                }
-            }
-            // id <действ_id>
             else if (GetToken(index).Type == "ID")
             {
-                index++;
-                return deistv_id();
+                return arifm();
             }
-            // for (x in 10..1 step -1) { <spis_oper> }
-            else if (GetToken(index).Type == "T" && GetToken(index).Value == "for")
+            else if (GetToken(index).Type == "T" && GetToken(index).Value == "var")
             {
-                index++;
-                if (!(GetToken(index).Type == "S" && GetToken(index).Value == "("))
-                {
-                    Error(ErrorCode.ExpectedOpenParenthesis, index);
-                    return ErrorCode.ExpectedOpenParenthesis;
-                }
-                index++;
-
-                // Проверка переменной цикла
-                if (GetToken(index).Type != "ID")
-                {
-                    Error(ErrorCode.ExpectedIdentifier, index);
-                    return ErrorCode.ExpectedIdentifier;
-                }
-                index++;
-
-                // Проверка ключевого слова 'in'
-                if (!(GetToken(index).Type == "T" && GetToken(index).Value == "in"))
-                {
-                    Error(ErrorCode.ExpectedIn, index); // Используем существующий ExpectedIn
-                    return ErrorCode.ExpectedIn;
-                }
-                index++;
-
-                // Обработка диапазона (начальное значение)
-                ErrorCode code = vyr();
-                if (code != ErrorCode.ExpectedCloseBrace) return code;
-
-                // Проверка оператора '..'
-                if (!(GetToken(index).Type == "S" && GetToken(index).Value == ".."))
-                {
-                    Error(ErrorCode.ExpectedDoubleDot, index); // Используем существующий ExpectedDoubleDot
-                    return ErrorCode.ExpectedDoubleDot;
-                }
-                index++;
-
-                // Обработка конечного значения диапазона
-                code = vyr();
-                if (code != ErrorCode.ExpectedCloseBrace) return code;
-
-                // Обработка необязательного 'step'
-                if (GetToken(index).Type == "T" && GetToken(index).Value == "step")
-                {
-                    index++;
-                    code = vyr();
-                    if (code != ErrorCode.ExpectedCloseBrace) return code;
-                }
-
-                // Проверка закрывающей скобки
-                if (!(GetToken(index).Type == "S" && GetToken(index).Value == ")"))
-                {
-                    Error(ErrorCode.ExpectedCloseParenthesis, index);
-                    return ErrorCode.ExpectedCloseParenthesis;
-                }
-                index++;
-
-                // Проверка открывающей фигурной скобки
-                if (!(GetToken(index).Type == "S" && GetToken(index).Value == "{"))
-                {
-                    Error(ErrorCode.ExpectedOpenBrace, index);
-                    return ErrorCode.ExpectedOpenBrace;
-                }
-                index++;
-
-                // Обработка тела цикла
-                code = spis_oper();
-                if (code != ErrorCode.ExpectedCloseBrace) return code;
-
-                // Проверка закрывающей фигурной скобки
-                if (!(GetToken(index).Type == "S" && GetToken(index).Value == "}"))
-                {
-                    Error(ErrorCode.ExpectedCloseBrace, index);
-                    return ErrorCode.ExpectedCloseBrace;
-                }
-                index++;
-
-                return ErrorCode.ExpectedCloseBrace; // Успешное завершение
+                return opis_per();
+            }
+            else if (GetToken(index).Type == "T" && GetToken(index).Value == "val")
+            {
+                return opis_konst();
             }
             else
             {
@@ -276,58 +192,107 @@ namespace task
             }
         }
 
-        private ErrorCode bolshe_oper()
+        private ErrorCode opis_konst()
         {
-            if (index >= Tokens.Count ||
-                (GetToken(index).Type == "S" && GetToken(index).Value == "}"))
+            if (!(GetToken(index).Type == "T" && GetToken(index).Value == "val"))
             {
-                return ErrorCode.ExpectedCloseBrace; // Разрешаем завершение
+                Error(ErrorCode.ExpectedVal, index);
+                return ErrorCode.ExpectedVal;
             }
+            index++;
 
-            ErrorCode code = oper();
+            if (!(GetToken(index).Type == "ID"))
+            {
+                Error(ErrorCode.ExpectedIdentifier, index);
+                return ErrorCode.ExpectedIdentifier;
+            }
+            index++;
+
+            if (!(GetToken(index).Type == "S" && GetToken(index).Value == ":"))
+            {
+                Error(ErrorCode.ExpectedColon, index);
+                return ErrorCode.ExpectedColon;
+            }
+            index++;
+
+            ErrorCode code = tip();
             if (code != ErrorCode.ExpectedCloseBrace) return code;
 
-            return bolshe_oper();
+            code = K();
+            if (code != ErrorCode.ExpectedCloseBrace) return code;
+
+            if (!(GetToken(index).Type == "S" && GetToken(index).Value == ";"))
+            {
+                Error(ErrorCode.ExpectedSemicolon, index);
+                return ErrorCode.ExpectedSemicolon;
+            }
+            index++;
+
+            return ErrorCode.ExpectedCloseBrace;
         }
 
-        private ErrorCode opis_id()
+        private ErrorCode K()
         {
-            if (GetToken(index).Type == "S" && GetToken(index).Value == ":")
+            if (GetToken(index).Type == "S" && GetToken(index).Value == "=")
             {
                 index++;
-                ErrorCode code = tip();
-                if (code != ErrorCode.ExpectedCloseBrace) return code;
-
-                code = prisv();
-                if (code != ErrorCode.ExpectedCloseBrace) return code;
-
-                if (!(GetToken(index).Type == "S" && GetToken(index).Value == ";"))
+                if (!(GetToken(index).Type == "L"))
                 {
-                    Error(ErrorCode.ExpectedSemicolon, index);
-                    return ErrorCode.ExpectedSemicolon;
+                    Error(ErrorCode.ExpectedLiteral, index);
+                    return ErrorCode.ExpectedLiteral;
                 }
                 index++;
-                return ErrorCode.ExpectedCloseBrace;
             }
-            else if (GetToken(index).Type == "S" && GetToken(index).Value == "=")
-            {
-                index++;
-                ErrorCode code = vyr();
-                if (code != ErrorCode.ExpectedSemicolon) return code;
+            return ErrorCode.ExpectedCloseBrace;
+        }
 
-                if (!(GetToken(index).Type == "S" && GetToken(index).Value == ";"))
-                {
-                    Error(ErrorCode.ExpectedSemicolon, index);
-                    return ErrorCode.ExpectedSemicolon;
-                }
-                index++;
-                return ErrorCode.ExpectedCloseBrace;
-            }
-            else
+        private ErrorCode opis_per()
+        {
+            if (!(GetToken(index).Type == "T" && GetToken(index).Value == "var"))
             {
-                Error(ErrorCode.InvalidDeclaration, index);
-                return ErrorCode.InvalidDeclaration;
+                Error(ErrorCode.ExpectedVar, index);
+                return ErrorCode.ExpectedVar;
             }
+            index++;
+
+            if (!(GetToken(index).Type == "ID"))
+            {
+                Error(ErrorCode.ExpectedIdentifier, index);
+                return ErrorCode.ExpectedIdentifier;
+            }
+            index++;
+
+            if (!(GetToken(index).Type == "S" && GetToken(index).Value == ":"))
+            {
+                Error(ErrorCode.ExpectedColon, index);
+                return ErrorCode.ExpectedColon;
+            }
+            index++;
+
+            ErrorCode code = tip();
+            if (code != ErrorCode.ExpectedCloseBrace) return code;
+
+            code = P();
+            if (code != ErrorCode.ExpectedCloseBrace) return code;
+
+            if (!(GetToken(index).Type == "S" && GetToken(index).Value == ";"))
+            {
+                Error(ErrorCode.ExpectedSemicolon, index);
+                return ErrorCode.ExpectedSemicolon;
+            }
+            index++;
+
+            return ErrorCode.ExpectedCloseBrace;
+        }
+
+        private ErrorCode P()
+        {
+            if (GetToken(index).Type == "S" && GetToken(index).Value == "=")
+            {
+                index++;
+                return fakt();
+            }
+            return ErrorCode.ExpectedCloseBrace;
         }
 
         private ErrorCode tip()
@@ -344,14 +309,33 @@ namespace task
             }
         }
 
-        private ErrorCode prisv()
+        private ErrorCode arifm()
         {
-            if (GetToken(index).Type == "S" && GetToken(index).Value == "=")
+            if (!(GetToken(index).Type == "ID"))
             {
-                index++;
-                return vyr();
+                Error(ErrorCode.ExpectedIdentifier, index);
+                return ErrorCode.ExpectedIdentifier;
             }
-            return ErrorCode.ExpectedCloseBrace; // ε case
+            index++;
+
+            if (!(GetToken(index).Type == "S" && GetToken(index).Value == "="))
+            {
+                Error(ErrorCode.ExpectedEquals, index);
+                return ErrorCode.ExpectedEquals;
+            }
+            index++;
+
+            ErrorCode code = vyr();
+            if (code != ErrorCode.ExpectedCloseBrace) return code;
+
+            if (!(GetToken(index).Type == "S" && GetToken(index).Value == ";"))
+            {
+                Error(ErrorCode.ExpectedSemicolon, index);
+                return ErrorCode.ExpectedSemicolon;
+            }
+            index++;
+
+            return ErrorCode.ExpectedCloseBrace;
         }
 
         private ErrorCode vyr()
@@ -359,7 +343,20 @@ namespace task
             ErrorCode code = slag();
             if (code != ErrorCode.ExpectedCloseBrace) return code;
 
-            return bolshe_slag();
+            return E();
+        }
+
+        private ErrorCode E()
+        {
+            if (GetToken(index).Type == "S" && (GetToken(index).Value == "+" || GetToken(index).Value == "-"))
+            {
+                index++;
+                ErrorCode code = slag();
+                if (code != ErrorCode.ExpectedCloseBrace) return code;
+
+                return E();
+            }
+            return ErrorCode.ExpectedCloseBrace;
         }
 
         private ErrorCode slag()
@@ -367,29 +364,37 @@ namespace task
             ErrorCode code = fakt();
             if (code != ErrorCode.ExpectedCloseBrace) return code;
 
-            return bolshe_fakt();
+            return M();
+        }
+
+        private ErrorCode M()
+        {
+            if (GetToken(index).Type == "S" &&
+                (GetToken(index).Value == "*" || GetToken(index).Value == "/" || GetToken(index).Value == "%"))
+            {
+                index++;
+                ErrorCode code = fakt();
+                if (code != ErrorCode.ExpectedCloseBrace) return code;
+
+                return M();
+            }
+            return ErrorCode.ExpectedCloseBrace;
         }
 
         private ErrorCode fakt()
         {
-            if (GetToken(index).Type == "ID") // id
+            if (GetToken(index).Type == "ID" || GetToken(index).Type == "L")
             {
                 index++;
                 return ErrorCode.ExpectedCloseBrace;
             }
-            else if (GetToken(index).Type == "L") // lit
+            else if (GetToken(index).Type == "S" && GetToken(index).Value == "(")
             {
                 index++;
-                return ErrorCode.ExpectedCloseBrace;
-            }
-            else if (GetToken(index).Type == "S" && GetToken(index).Value == "(") // (
-            {
-                index++;
-
                 ErrorCode code = vyr();
                 if (code != ErrorCode.ExpectedCloseBrace) return code;
 
-                if (!(GetToken(index).Type == "S" && GetToken(index).Value == ")")) // )
+                if (!(GetToken(index).Type == "S" && GetToken(index).Value == ")"))
                 {
                     Error(ErrorCode.ExpectedCloseParenthesis, index);
                     return ErrorCode.ExpectedCloseParenthesis;
@@ -404,111 +409,100 @@ namespace task
             }
         }
 
-        private ErrorCode bolshe_fakt()
+        private ErrorCode cikl()
         {
-            if (index >= Tokens.Count)
-                return ErrorCode.ExpectedCloseBrace;
-
-            if (GetToken(index).Type == "S" && GetToken(index).Value == "*") // *
+            if (!(GetToken(index).Type == "T" && GetToken(index).Value == "for"))
             {
-                index++;
-                ErrorCode code = fakt();
-                if (code != ErrorCode.ExpectedCloseBrace) return code;
-
-                return bolshe_fakt();
+                Error(ErrorCode.ExpectedFor, index);
+                return ErrorCode.ExpectedFor;
             }
-            else if (GetToken(index).Type == "S" && GetToken(index).Value == "/") // /
+            index++;
+
+            if (!(GetToken(index).Type == "S" && GetToken(index).Value == "("))
             {
-                index++;
-                ErrorCode code = fakt();
-                if (code != ErrorCode.ExpectedCloseBrace) return code;
-
-                return bolshe_fakt();
+                Error(ErrorCode.ExpectedOpenParenthesis, index);
+                return ErrorCode.ExpectedOpenParenthesis;
             }
-            else if (GetToken(index).Type == "S" && GetToken(index).Value == "%") // %
+            index++;
+
+            if (!(GetToken(index).Type == "ID"))
             {
-                index++;
-                ErrorCode code = fakt();
-                if (code != ErrorCode.ExpectedCloseBrace) return code;
-
-                return bolshe_fakt();
+                Error(ErrorCode.ExpectedIdentifier, index);
+                return ErrorCode.ExpectedIdentifier;
             }
-            return ErrorCode.ExpectedCloseBrace; // ε case
+            index++;
+
+            if (!(GetToken(index).Type == "T" && GetToken(index).Value == "in"))
+            {
+                Error(ErrorCode.Expectedinvcikl, index);
+                return ErrorCode.Expectedinvcikl;
+            }
+            index++;
+
+            ErrorCode code = fakt();
+            if (code != ErrorCode.ExpectedCloseBrace) return code;
+
+            if (!(GetToken(index).Type == "S" && GetToken(index).Value == ".."))
+            {
+                Error(ErrorCode.ExpectedDoubleDot, index);
+                return ErrorCode.ExpectedDoubleDot;
+            }
+            index++;
+
+            code = fakt();
+            if (code != ErrorCode.ExpectedCloseBrace) return code;
+
+            code = C();
+            if (code != ErrorCode.ExpectedCloseBrace) return code;
+
+            if (!(GetToken(index).Type == "S" && GetToken(index).Value == ")"))
+            {
+                Error(ErrorCode.ExpectedCloseParenthesis, index);
+                return ErrorCode.ExpectedCloseParenthesis;
+            }
+            index++;
+
+            return blok();
         }
 
-        private ErrorCode bolshe_slag()
+        private ErrorCode C()
         {
-            if (index >= Tokens.Count)
-                return ErrorCode.ExpectedCloseBrace;
-
-            if (GetToken(index).Type == "S" && GetToken(index).Value == "+") // +
+            // Проверка необязательного шага 'step'
+            if (GetToken(index).Type == "T" && GetToken(index).Value == "step")
             {
                 index++;
-                ErrorCode code = slag();
-                if (code != ErrorCode.ExpectedCloseBrace) return code;
 
-                return bolshe_slag();
-            }
-            else if (GetToken(index).Type == "S" && GetToken(index).Value == "-") // -
-            {
+                // Теперь ожидаем литерал после step
+                if (!(GetToken(index).Type == "L")) // L - тип для литералов
+                {
+                    Error(ErrorCode.ExpectedLiteral, index);
+                    return ErrorCode.ExpectedLiteral;
+                }
                 index++;
-                ErrorCode code = slag();
-                if (code != ErrorCode.ExpectedCloseBrace) return code;
-
-                return bolshe_slag();
             }
-            return ErrorCode.ExpectedCloseBrace; // ε case
+            return ErrorCode.ExpectedCloseBrace; // ε-правило - шаг может отсутствовать
         }
 
-        private ErrorCode deistv_id()
+        private ErrorCode blok()
         {
-            if (index >= Tokens.Count)
+            if (GetToken(index).Type == "S" && GetToken(index).Value == "{")
             {
-                Error(ErrorCode.UnexpectedToken, index);
-                return ErrorCode.UnexpectedToken;
-            }
+                index++;
+                ErrorCode code = spis_oper();
+                if (code != ErrorCode.ExpectedCloseBrace) return code;
 
-            // Проверяем, является ли текущий токен оператором присваивания
-            if (GetToken(index).Type == "S" && GetToken(index).Value == "=") // =
-            {
+                if (!(GetToken(index).Type == "S" && GetToken(index).Value == "}"))
+                {
+                    Error(ErrorCode.ExpectedCloseBrace, index);
+                    return ErrorCode.ExpectedCloseBrace;
+                }
                 index++;
-                ErrorCode code = vyr();
-                if (code != ErrorCode.ExpectedCloseBrace) return code;
-            }
-            else if (GetToken(index).Type == "S" &&
-                    (GetToken(index).Value == "+=" ||
-                     GetToken(index).Value == "-=" ||
-                     GetToken(index).Value == "*=" ||
-                     GetToken(index).Value == "/=" ||
-                     GetToken(index).Value == "%=")) // сл_ар_опер
-            {
-                index++;
-                ErrorCode code = vyr();
-                if (code != ErrorCode.ExpectedCloseBrace) return code;
+                return ErrorCode.ExpectedCloseBrace;
             }
             else
             {
-                // Если токен не является оператором присваивания, проверяем, является ли он частью другого допустимого контекста
-                if (GetToken(index).Type == "S" && GetToken(index).Value == "{")
-                {
-                    // Если это открывающая скобка, возвращаем ошибку, но более точную
-                    Error(ErrorCode.InvalidStatement, index);
-                    return ErrorCode.InvalidStatement;
-                }
-                else
-                {
-                    Error(ErrorCode.InvalidOperator, index);
-                    return ErrorCode.InvalidOperator;
-                }
+                return oper();
             }
-
-            if (!(GetToken(index).Type == "S" && GetToken(index).Value == ";")) // ;
-            {
-                Error(ErrorCode.ExpectedSemicolon, index);
-                return ErrorCode.ExpectedSemicolon;
-            }
-            index++;
-            return ErrorCode.ExpectedCloseBrace;
         }
     }
 }

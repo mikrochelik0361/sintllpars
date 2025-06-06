@@ -8,3 +8,13 @@ E:\VS\task\task\bin\Debug\task.exe
 E:\VS\task\task\bin\Debug\task.pdb
 E:\VS\task\task\obj\Debug\task.exe
 E:\VS\task\task\obj\Debug\task.pdb
+E:\ЗАЩИТА КР\llpars\task\obj\Debug\task.csproj.AssemblyReference.cache
+E:\ЗАЩИТА КР\llpars\task\obj\Debug\task.Form1.resources
+E:\ЗАЩИТА КР\llpars\task\obj\Debug\task.Properties.Resources.resources
+E:\ЗАЩИТА КР\llpars\task\obj\Debug\task.csproj.GenerateResource.cache
+E:\ЗАЩИТА КР\llpars\task\obj\Debug\task.csproj.CoreCompileInputs.cache
+E:\ЗАЩИТА КР\llpars\task\obj\Debug\task.exe
+E:\ЗАЩИТА КР\llpars\task\obj\Debug\task.pdb
+E:\ЗАЩИТА КР\llpars\task\bin\Debug\task.exe.config
+E:\ЗАЩИТА КР\llpars\task\bin\Debug\task.exe
+E:\ЗАЩИТА КР\llpars\task\bin\Debug\task.pdb
